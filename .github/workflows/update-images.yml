@@ -1,0 +1,50 @@
+name: 每日更新图片并转为 WebP
+
+on:
+  schedule:
+    # 每天 UTC 00:00 触发（可根据需要调整时区）
+    - cron: '0 0 * * *'
+  workflow_dispatch:   # 允许手动触发
+
+permissions:
+  contents: write      # 授予推送代码的权限
+
+jobs:
+  update-images:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 检出仓库
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      # 2. 安装 WebP 工具（包含 cwebp）
+      - name: 安装 WebP 工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y webp
+
+      # 3. 下载两张 PNG 图片
+      - name: 下载 PNG 图片
+        run: |
+          curl -o influence.png https://www.verite.space/maps/influence/influence.png
+          curl -o coalitioninfluence.png https://www.verite.space/maps/coalition/coalitioninfluence.png
+
+      # 4. 转换为 WebP 格式（质量设为 85，可自行调整）
+      - name: 转换为 WebP
+        run: |
+          cwebp -q 85 influence.png -o influence.webp
+          cwebp -q 85 coalitioninfluence.png -o coalitioninfluence.webp
+
+      # 5. 删除原始 PNG（可选，避免仓库体积膨胀）
+      - name: 删除 PNG 文件
+        run: rm influence.png coalitioninfluence.png
+
+      # 6. 提交并推送更改（仅当 WebP 文件有变动时）
+      - name: 提交并推送更改
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add influence.webp coalitioninfluence.webp
+          # 检查是否有变更，若无则跳过提交
+          git diff --staged --quiet || git commit -m "自动更新图片 (WebP) [skip ci]"
+          git push
